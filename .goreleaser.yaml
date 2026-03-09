@@ -1,0 +1,93 @@
+version: 2
+
+project_name: sesm
+
+before:
+  hooks:
+    - cd frontend && npm ci
+    - cd frontend && npm run build
+    - rm -rf backend/cmd/sesm/web/dist
+    - mkdir -p backend/cmd/sesm/web
+    - cp -r frontend/dist backend/cmd/sesm/web/dist
+
+builds:
+  # macOS requires CGO for the PTY implementation (grantpt/unlockpt/ptsname).
+  # This must run on a macOS host; cross-compilation is possible via the Apple SDK
+  # (arm64↔amd64) but not from Linux.
+  - id: sesm-darwin
+    main: ./cmd/sesm
+    dir: backend
+    binary: sesm
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+  # Linux and Windows use pure-Go PTY; CGO is not required.
+  - id: sesm-linux-windows
+    main: ./cmd/sesm
+    dir: backend
+    binary: sesm
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - id: sesm
+    builds:
+      - sesm-darwin
+      - sesm-linux-windows
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: checksums.txt
+
+release:
+  github:
+    owner: wahyudotdev
+    name: sesm
+  draft: false
+  prerelease: auto
+  name_template: "{{.ProjectName}} v{{.Version}}"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: Features
+      regexp: "^feat"
+      order: 0
+    - title: Bug Fixes
+      regexp: "^fix"
+      order: 1
+    - title: Others
+      order: 999
