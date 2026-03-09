@@ -9,6 +9,7 @@ import { Placeholder } from '@/pages/Placeholder'
 import { PortForward } from '@/pages/PortForward'
 import { Profiles } from '@/pages/Profiles'
 import { Terminal } from '@/pages/Terminal'
+import { Security } from '@/pages/Security'
 import { VaultSetup } from '@/pages/VaultSetup'
 import { VaultUnlock } from '@/pages/VaultUnlock'
 import { Spinner } from '@/components/ui/Spinner'
@@ -49,7 +50,7 @@ const AppInner = () => {
   }
 
   if (!vaultStatus?.unlocked) {
-    return <VaultUnlock method={vaultStatus.method} onUnlock={handleVaultReady} />
+    return <VaultUnlock method={vaultStatus.method} hasPasswordBackup={vaultStatus.hasPasswordBackup} onUnlock={handleVaultReady} />
   }
 
   return (
@@ -61,6 +62,7 @@ const AppInner = () => {
           <Route path="/instances" element={<Instances />} />
           <Route path="/terminal" element={<Terminal />} />
           <Route path="/port-forward" element={<PortForward />} />
+          <Route path="/security" element={<Security />} />
           <Route
             path="/history"
             element={

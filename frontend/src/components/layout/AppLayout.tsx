@@ -13,6 +13,7 @@ const routeMeta: Record<string, { title: string; description?: string }> = {
   '/port-forward': { title: 'Port Forward', description: 'Configure and manage port-forwarding rules' },
   '/history': { title: 'History', description: 'View past sessions and connections' },
   '/settings': { title: 'Settings', description: 'Configure application preferences' },
+  '/security': { title: 'Security', description: 'Manage vault authentication and backup methods' },
 }
 
 export const AppLayout: FC = () => {

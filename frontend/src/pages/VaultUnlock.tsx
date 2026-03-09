@@ -10,15 +10,17 @@ import { Input } from '@/components/ui/Input'
 
 interface VaultUnlockProps {
   method: 'password' | 'passkey' | ''
+  hasPasswordBackup: boolean
   onUnlock: () => void
 }
 
-export const VaultUnlock: FC<VaultUnlockProps> = ({ method, onUnlock }) => {
+export const VaultUnlock: FC<VaultUnlockProps> = ({ method, hasPasswordBackup, onUnlock }) => {
   const queryClient = useQueryClient()
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [useBackup, setUseBackup] = useState(false)
 
   const handlePasswordUnlock = async () => {
     if (!password) return
@@ -161,7 +163,7 @@ export const VaultUnlock: FC<VaultUnlockProps> = ({ method, onUnlock }) => {
             </div>
           )}
 
-          {method === 'passkey' && (
+          {method === 'passkey' && !useBackup && (
             <div className="space-y-4">
               {error && (
                 <p className="text-xs text-[var(--color-danger)] flex items-center gap-1.5">
@@ -178,6 +180,60 @@ export const VaultUnlock: FC<VaultUnlockProps> = ({ method, onUnlock }) => {
                 onClick={() => void handlePasskeyUnlock()}
               >
                 Unlock with passkey
+              </Button>
+
+              {hasPasswordBackup && (
+                <button
+                  type="button"
+                  onClick={() => { setUseBackup(true); setError('') }}
+                  className="w-full text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors text-center"
+                >
+                  Use backup password instead
+                </button>
+              )}
+            </div>
+          )}
+
+          {method === 'passkey' && useBackup && (
+            <div className="space-y-4">
+              <button
+                onClick={() => { setUseBackup(false); setError('') }}
+                className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+              >
+                ← Back to passkey
+              </button>
+
+              <Input
+                label="Backup password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your backup password"
+                autoFocus
+                suffix={
+                  <button type="button" onClick={() => setShowPassword((v) => !v)} className="focus:outline-none">
+                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                }
+                onKeyDown={(e) => { if (e.key === 'Enter') void handlePasswordUnlock() }}
+              />
+
+              {error && (
+                <p className="text-xs text-[var(--color-danger)] flex items-center gap-1.5">
+                  <AlertTriangle size={12} /> {error}
+                </p>
+              )}
+
+              <Button
+                variant="primary"
+                size="lg"
+                className="w-full"
+                loading={loading}
+                disabled={!password}
+                icon={<Lock size={16} />}
+                onClick={() => void handlePasswordUnlock()}
+              >
+                Unlock
               </Button>
             </div>
           )}

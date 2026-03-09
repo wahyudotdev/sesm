@@ -1,4 +1,4 @@
-import { post } from './client'
+import { del, post } from './client'
 import client from './client'
 import type { ApiResponse } from '@/types'
 
@@ -6,6 +6,7 @@ export interface VaultStatus {
   initialized: boolean
   method: 'password' | 'passkey' | ''
   unlocked: boolean
+  hasPasswordBackup: boolean
 }
 
 // WebAuthn JSON response types (L3 spec — not always in lib.dom)
@@ -58,4 +59,15 @@ export const vaultApi = {
 
   finishPasskeyUnlock: (assertion: AuthenticationResponseJSON) =>
     post<void>('/vault/unlock/passkey/finish', assertion),
+
+  addPasswordBackup: (password: string) =>
+    post<void>('/vault/backup/password', { password }),
+
+  removePasswordBackup: () => del<void>('/vault/backup/password'),
+
+  beginReconfigurePasskey: () =>
+    post<PublicKeyCredentialCreationOptions>('/vault/passkey/reconfigure/begin', {}),
+
+  finishReconfigurePasskey: (credential: RegistrationResponseJSON) =>
+    post<void>('/vault/passkey/reconfigure/finish', credential),
 }

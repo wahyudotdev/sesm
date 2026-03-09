@@ -30,10 +30,11 @@ type passkeyMeta struct {
 }
 
 type meta struct {
-	Version  int           `json:"version"`
-	Method   Method        `json:"method"`
-	Password *passwordMeta `json:"password,omitempty"`
-	Passkey  *passkeyMeta  `json:"passkey,omitempty"`
+	Version        int           `json:"version"`
+	Method         Method        `json:"method"`
+	Password       *passwordMeta `json:"password,omitempty"`
+	Passkey        *passkeyMeta  `json:"passkey,omitempty"`
+	BackupPassword *passwordMeta `json:"backupPassword,omitempty"` // optional backup for passkey mode
 }
 
 type Vault struct {
@@ -175,21 +176,133 @@ func (v *Vault) SetupPassword(password string) error {
 	return v.save()
 }
 
-// UnlockPassword unlocks the vault using a password.
+// UnlockPassword unlocks the vault using a password (primary or backup).
 func (v *Vault) UnlockPassword(password string) error {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 
-	if v.m == nil || v.m.Method != MethodPassword || v.m.Password == nil {
-		return errors.New("vault not set up with password")
+	if v.m == nil {
+		return errors.New("vault not initialized")
 	}
-	wk := deriveKey(password, v.m.Password.Salt)
-	mk, err := decryptGCM(wk, v.m.Password.EncryptedKey)
+
+	// Try primary password
+	if v.m.Method == MethodPassword && v.m.Password != nil {
+		wk := deriveKey(password, v.m.Password.Salt)
+		mk, err := decryptGCM(wk, v.m.Password.EncryptedKey)
+		if err == nil {
+			v.masterKey = mk
+			return nil
+		}
+	}
+
+	// Try backup password (available when primary is passkey)
+	if v.m.BackupPassword != nil {
+		wk := deriveKey(password, v.m.BackupPassword.Salt)
+		mk, err := decryptGCM(wk, v.m.BackupPassword.EncryptedKey)
+		if err == nil {
+			v.masterKey = mk
+			return nil
+		}
+	}
+
+	return errors.New("incorrect password")
+}
+
+// HasPasswordBackup reports whether a backup password is configured.
+func (v *Vault) HasPasswordBackup() bool {
+	v.mu.RLock()
+	defer v.mu.RUnlock()
+	return v.m != nil && v.m.BackupPassword != nil
+}
+
+// AddPasswordBackup encrypts the master key with a backup password and stores it.
+// Requires the vault to be unlocked.
+func (v *Vault) AddPasswordBackup(password string) error {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
+	if len(v.masterKey) != keyLen {
+		return errors.New("vault locked")
+	}
+	salt, err := generateRandom(saltLen)
 	if err != nil {
-		return errors.New("incorrect password")
+		return err
 	}
-	v.masterKey = mk
-	return nil
+	wk := deriveKey(password, salt)
+	encMK, err := encryptGCM(wk, v.masterKey)
+	if err != nil {
+		return err
+	}
+	v.m.BackupPassword = &passwordMeta{Salt: salt, EncryptedKey: encMK}
+	return v.save()
+}
+
+// RemovePasswordBackup removes the backup password.
+func (v *Vault) RemovePasswordBackup() error {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
+	if v.m == nil {
+		return errors.New("vault not initialized")
+	}
+	v.m.BackupPassword = nil
+	return v.save()
+}
+
+// BeginReconfigurePasskey starts a new WebAuthn registration to replace the stored credential.
+// Requires the vault to be unlocked.
+func (v *Vault) BeginReconfigurePasskey() (interface{}, error) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
+	if len(v.masterKey) != keyLen {
+		return nil, errors.New("vault locked")
+	}
+	if v.m == nil || v.m.Method != MethodPasskey {
+		return nil, errors.New("vault not configured for passkey")
+	}
+
+	user := &vaultUser{id: v.m.Passkey.UserID}
+	v.waUser = user
+
+	options, session, err := v.wa.BeginRegistration(user)
+	if err != nil {
+		return nil, fmt.Errorf("begin registration: %w", err)
+	}
+	v.regSession = session
+	return options, nil
+}
+
+// FinalizeReconfigurePasskey replaces the stored passkey credential with the new one.
+// Re-encrypts the existing master key for the new credential.
+func (v *Vault) FinalizeReconfigurePasskey(cred *webauthn.Credential) error {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
+	if len(v.masterKey) != keyLen {
+		return errors.New("vault locked")
+	}
+
+	wk, err := generateRandom(keyLen)
+	if err != nil {
+		return err
+	}
+	encMK, err := encryptGCM(wk, v.masterKey)
+	if err != nil {
+		return err
+	}
+	credJSON, err := json.Marshal(cred)
+	if err != nil {
+		return fmt.Errorf("marshal credential: %w", err)
+	}
+
+	v.m.Passkey = &passkeyMeta{
+		UserID:       v.m.Passkey.UserID,
+		Credential:   credJSON,
+		EncryptedKey: encMK,
+		WrappingKey:  wk,
+	}
+	return v.save()
 }
 
 // BeginPasskeySetup starts WebAuthn registration. Returns JSON-serializable options.

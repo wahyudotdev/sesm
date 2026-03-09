@@ -79,6 +79,10 @@ func main() {
 	mux.HandleFunc("POST /api/vault/unlock/password", vaultH.UnlockPassword)
 	mux.HandleFunc("POST /api/vault/unlock/passkey/begin", vaultH.BeginPasskeyUnlock)
 	mux.HandleFunc("POST /api/vault/unlock/passkey/finish", vaultH.FinishPasskeyUnlock)
+	mux.HandleFunc("POST /api/vault/backup/password", vaultH.AddPasswordBackup)
+	mux.HandleFunc("DELETE /api/vault/backup/password", vaultH.RemovePasswordBackup)
+	mux.HandleFunc("POST /api/vault/passkey/reconfigure/begin", vaultH.BeginReconfigurePasskey)
+	mux.HandleFunc("POST /api/vault/passkey/reconfigure/finish", vaultH.FinishReconfigurePasskey)
 	mux.Handle("/", spaHandler())
 
 	h := middleware.CORS(mux)

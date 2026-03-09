@@ -5,6 +5,7 @@ import {
   Server,
   ArrowRightLeft,
   Terminal,
+  ShieldCheck,
   ChevronRight,
 } from 'lucide-react'
 
@@ -86,8 +87,36 @@ export const Sidebar: FC = () => (
       </ul>
     </nav>
 
-    {/* Version */}
+    {/* Bottom nav */}
     <div className="py-3 px-2 border-t border-[var(--color-border)]">
+      <ul className="flex flex-col gap-0.5 mb-3">
+        {[{ label: 'Security', to: '/security', icon: ShieldCheck }].map((item) => (
+          <li key={item.to}>
+            <NavLink
+              to={item.to}
+              className={({ isActive }) =>
+                `group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-all duration-150
+                ${
+                  isActive
+                    ? 'bg-[var(--color-brand-muted)] text-[var(--color-brand)]'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-elevated)]'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <item.icon
+                    size={14}
+                    className={`shrink-0 ${isActive ? 'text-[var(--color-brand)]' : 'text-[var(--color-text-muted)] group-hover:text-[var(--color-text-secondary)]'}`}
+                  />
+                  <span className="flex-1">{item.label}</span>
+                  {isActive && <ChevronRight size={12} className="text-[var(--color-brand)] opacity-60" />}
+                </>
+              )}
+            </NavLink>
+          </li>
+        ))}
+      </ul>
       <div className="px-2.5">
         <p className="text-[10px] text-[var(--color-text-muted)]">v0.1.0</p>
       </div>

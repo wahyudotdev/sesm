@@ -40,10 +40,10 @@ func (s *RuleStore) load() ([]model.PortForwardRule, error) {
 		if !s.vault.IsUnlocked() {
 			return nil, errors.New("vault is locked")
 		}
-		data, err = s.vault.Decrypt(data)
-		if err != nil {
-			return nil, fmt.Errorf("decrypt rules: %w", err)
+		if decrypted, derr := s.vault.Decrypt(data); derr == nil {
+			data = decrypted
 		}
+		// decryption failure means pre-vault plain JSON — fall through and migrate on next save
 	}
 
 	var records []model.PortForwardRule
