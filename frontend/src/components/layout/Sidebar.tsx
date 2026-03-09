@@ -4,8 +4,6 @@ import {
   KeyRound,
   Server,
   ArrowRightLeft,
-  History,
-  Settings,
   Terminal,
   ChevronRight,
 } from 'lucide-react'
@@ -24,10 +22,7 @@ const navItems: NavItem[] = [
   { label: 'Profiles', to: '/profiles', icon: KeyRound },
   { label: 'Instances', to: '/instances', icon: Server },
   { label: 'Port Forward', to: '/port-forward', icon: ArrowRightLeft },
-  { label: 'History', to: '/history', icon: History },
 ]
-
-const bottomNavItems: NavItem[] = [{ label: 'Settings', to: '/settings', icon: Settings }]
 
 export const Sidebar: FC = () => (
   <aside className="w-56 shrink-0 h-full flex flex-col bg-[var(--color-bg-surface)] border-r border-[var(--color-border)]">
@@ -91,38 +86,9 @@ export const Sidebar: FC = () => (
       </ul>
     </nav>
 
-    {/* Bottom nav */}
+    {/* Version */}
     <div className="py-3 px-2 border-t border-[var(--color-border)]">
-      <ul className="flex flex-col gap-0.5">
-        {bottomNavItems.map((item) => (
-          <li key={item.to}>
-            <NavLink
-              to={item.to}
-              className={({ isActive }) =>
-                `group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-all duration-150
-                ${
-                  isActive
-                    ? 'bg-[var(--color-brand-muted)] text-[var(--color-brand)]'
-                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-elevated)]'
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <item.icon
-                    size={14}
-                    className={`shrink-0 ${isActive ? 'text-[var(--color-brand)]' : 'text-[var(--color-text-muted)]'}`}
-                  />
-                  {item.label}
-                </>
-              )}
-            </NavLink>
-          </li>
-        ))}
-      </ul>
-
-      {/* Version */}
-      <div className="mt-3 px-2.5">
+      <div className="px-2.5">
         <p className="text-[10px] text-[var(--color-text-muted)]">v0.1.0</p>
       </div>
     </div>

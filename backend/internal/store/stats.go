@@ -25,18 +25,6 @@ func (s *StatsStore) GetDashboardStats(ctx context.Context) (*model.DashboardSta
 		return nil, fmt.Errorf("list profiles: %w", err)
 	}
 
-	sessions, err := s.sessions.List(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list sessions: %w", err)
-	}
-
-	activeSessions := 0
-	for _, sess := range sessions {
-		if sess.Status == model.SessionStatusActive {
-			activeSessions++
-		}
-	}
-
 	recent, err := s.sessions.ListRecent(10)
 	if err != nil {
 		return nil, fmt.Errorf("recent sessions: %w", err)
@@ -47,8 +35,6 @@ func (s *StatsStore) GetDashboardStats(ctx context.Context) (*model.DashboardSta
 
 	return &model.DashboardStats{
 		TotalProfiles:  len(profiles),
-		ActiveSessions: activeSessions,
-		TotalSessions:  len(sessions),
 		RecentSessions: recent,
 	}, nil
 }

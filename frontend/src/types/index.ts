@@ -63,7 +63,5 @@ export interface PortForwardRule {
 
 export interface DashboardStats {
   totalProfiles: number
-  activeSessions: number
-  totalSessions: number
   recentSessions: Session[]
 }

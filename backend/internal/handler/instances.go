@@ -56,6 +56,18 @@ func (h *InstanceHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Collect EC2 instance IDs (on-prem managed nodes start with "mi-", skip those).
+	var ec2IDs []string
+	for _, info := range infos {
+		if len(info.InstanceId) > 0 && info.InstanceId[:2] == "i-" {
+			ec2IDs = append(ec2IDs, info.InstanceId)
+		}
+	}
+
+	// Best-effort: fetch Name tags from EC2. If this fails (e.g. missing ec2:Describe* permission),
+	// fall back to ComputerName.
+	ec2Names, _ := client.DescribeInstanceNames(r.Context(), ec2IDs)
+
 	instances := make([]model.Instance, 0, len(infos))
 	for _, info := range infos {
 		state := "offline"
@@ -63,7 +75,10 @@ func (h *InstanceHandler) List(w http.ResponseWriter, r *http.Request) {
 			state = "running"
 		}
 
-		name := info.ComputerName
+		name := ec2Names[info.InstanceId]
+		if name == "" {
+			name = info.ComputerName
+		}
 		if name == "" {
 			name = info.InstanceId
 		}

@@ -38,7 +38,5 @@ type Session struct {
 // DashboardStats aggregates key metrics for the dashboard.
 type DashboardStats struct {
 	TotalProfiles  int       `json:"totalProfiles"`
-	ActiveSessions int       `json:"activeSessions"`
-	TotalSessions  int       `json:"totalSessions"`
 	RecentSessions []Session `json:"recentSessions"`
 }

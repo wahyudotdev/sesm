@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import {
   KeyRound,
-  Activity,
   Terminal as TerminalIcon,
   Server,
   ArrowRightLeft,
@@ -15,6 +14,9 @@ import { Link } from 'react-router-dom'
 import type { FC } from 'react'
 import type { Session } from '@/types'
 
+import { instancesApi } from '@/api/instances'
+import { profilesApi } from '@/api/profiles'
+import { rulesApi } from '@/api/rules'
 import { sessionsApi } from '@/api/sessions'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -121,6 +123,38 @@ export const Dashboard: FC = () => {
     refetchInterval: 30_000,
   })
 
+  const { data: profiles = [] } = useQuery({
+    queryKey: ['profiles'],
+    queryFn: profilesApi.list,
+  })
+
+  const { data: instancesMap = {} } = useQuery({
+    queryKey: ['instances', 'all', profiles.length],
+    queryFn: async () => {
+      const all: Record<string, unknown[]> = {}
+      await Promise.all(
+        profiles.map(async (p) => {
+          try {
+            all[p.id] = await instancesApi.list(p.id)
+          } catch {
+            all[p.id] = []
+          }
+        }),
+      )
+      return all
+    },
+    enabled: profiles.length > 0,
+  })
+
+  const totalInstances = Object.values(instancesMap).reduce((sum, arr) => sum + arr.length, 0)
+
+  const { data: rules = [] } = useQuery({
+    queryKey: ['rules'],
+    queryFn: rulesApi.list,
+  })
+
+  const activePortForwards = rules.filter((r) => r.enabled).length
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -131,8 +165,6 @@ export const Dashboard: FC = () => {
 
   const stats = data ?? {
     totalProfiles: 0,
-    activeSessions: 0,
-    totalSessions: 0,
     recentSessions: [],
   }
 
@@ -142,13 +174,12 @@ export const Dashboard: FC = () => {
       {error && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-warning-muted)] border border-[var(--color-warning)]/20 text-xs text-[var(--color-warning)]">
           <Zap size={13} className="shrink-0" />
-          Backend not reachable — showing placeholder data. Start the server with{' '}
-          <code className="font-mono">make dev-backend</code>.
+          Backend not reachable.
         </div>
       )}
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
           label="Total Profiles"
           value={stats.totalProfiles}
@@ -157,23 +188,17 @@ export const Dashboard: FC = () => {
           to="/profiles"
         />
         <StatCard
-          label="Active Sessions"
-          value={stats.activeSessions}
-          icon={Activity}
-          accent="success"
-          to="/history"
-        />
-        <StatCard
-          label="Terminal Sessions"
-          value={stats.totalSessions}
-          icon={TerminalIcon}
+          label="Total Instances"
+          value={totalInstances}
+          icon={Server}
           accent="info"
+          to="/instances"
         />
         <StatCard
-          label="Port Forwards"
-          value={0}
+          label="Active Port-Forwards"
+          value={activePortForwards}
           icon={ArrowRightLeft}
-          accent="warning"
+          accent="success"
           to="/port-forward"
         />
       </div>
