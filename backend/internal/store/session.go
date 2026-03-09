@@ -10,18 +10,20 @@ import (
 	"sync"
 
 	"sesm/internal/model"
+	"sesm/internal/vault"
 )
 
 // SessionStore is a thread-safe JSON flat-file store for sessions.
 type SessionStore struct {
-	mu   sync.RWMutex
-	path string
+	mu    sync.RWMutex
+	path  string
+	vault *vault.Vault
 }
 
 // NewSessionStore creates a SessionStore backed by dir/sessions.json.
-func NewSessionStore(dir string) *SessionStore {
+func NewSessionStore(dir string, v *vault.Vault) *SessionStore {
 	_ = os.MkdirAll(dir, 0o700)
-	return &SessionStore{path: filepath.Join(dir, "sessions.json")}
+	return &SessionStore{path: filepath.Join(dir, "sessions.json"), vault: v}
 }
 
 func (s *SessionStore) load() ([]model.Session, error) {
@@ -32,6 +34,17 @@ func (s *SessionStore) load() ([]model.Session, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read sessions: %w", err)
 	}
+
+	if s.vault != nil && s.vault.IsInitialized() {
+		if !s.vault.IsUnlocked() {
+			return nil, errors.New("vault is locked")
+		}
+		data, err = s.vault.Decrypt(data)
+		if err != nil {
+			return nil, fmt.Errorf("decrypt sessions: %w", err)
+		}
+	}
+
 	var records []model.Session
 	if err := json.Unmarshal(data, &records); err != nil {
 		return nil, fmt.Errorf("parse sessions: %w", err)
@@ -44,6 +57,17 @@ func (s *SessionStore) save(records []model.Session) error {
 	if err != nil {
 		return fmt.Errorf("marshal sessions: %w", err)
 	}
+
+	if s.vault != nil && s.vault.IsInitialized() {
+		if !s.vault.IsUnlocked() {
+			return errors.New("vault is locked")
+		}
+		data, err = s.vault.Encrypt(data)
+		if err != nil {
+			return fmt.Errorf("encrypt sessions: %w", err)
+		}
+	}
+
 	tmp := s.path + ".tmp"
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return fmt.Errorf("write sessions tmp: %w", err)

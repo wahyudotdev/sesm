@@ -11,18 +11,20 @@ import (
 	"time"
 
 	"sesm/internal/model"
+	"sesm/internal/vault"
 )
 
 // RuleStore is a thread-safe JSON flat-file store for port-forwarding rules.
 type RuleStore struct {
-	mu   sync.RWMutex
-	path string
+	mu    sync.RWMutex
+	path  string
+	vault *vault.Vault
 }
 
 // NewRuleStore creates a RuleStore backed by dir/rules.json.
-func NewRuleStore(dir string) *RuleStore {
+func NewRuleStore(dir string, v *vault.Vault) *RuleStore {
 	_ = os.MkdirAll(dir, 0o700)
-	return &RuleStore{path: filepath.Join(dir, "rules.json")}
+	return &RuleStore{path: filepath.Join(dir, "rules.json"), vault: v}
 }
 
 func (s *RuleStore) load() ([]model.PortForwardRule, error) {
@@ -33,6 +35,17 @@ func (s *RuleStore) load() ([]model.PortForwardRule, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read rules: %w", err)
 	}
+
+	if s.vault != nil && s.vault.IsInitialized() {
+		if !s.vault.IsUnlocked() {
+			return nil, errors.New("vault is locked")
+		}
+		data, err = s.vault.Decrypt(data)
+		if err != nil {
+			return nil, fmt.Errorf("decrypt rules: %w", err)
+		}
+	}
+
 	var records []model.PortForwardRule
 	if err := json.Unmarshal(data, &records); err != nil {
 		return nil, fmt.Errorf("parse rules: %w", err)
@@ -45,6 +58,17 @@ func (s *RuleStore) save(records []model.PortForwardRule) error {
 	if err != nil {
 		return fmt.Errorf("marshal rules: %w", err)
 	}
+
+	if s.vault != nil && s.vault.IsInitialized() {
+		if !s.vault.IsUnlocked() {
+			return errors.New("vault is locked")
+		}
+		data, err = s.vault.Encrypt(data)
+		if err != nil {
+			return fmt.Errorf("encrypt rules: %w", err)
+		}
+	}
+
 	tmp := s.path + ".tmp"
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return fmt.Errorf("write rules tmp: %w", err)

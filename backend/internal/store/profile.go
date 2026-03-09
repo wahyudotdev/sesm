@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"sesm/internal/model"
+	"sesm/internal/vault"
 )
 
 // profileRecord persists all profile fields including the secret key.
@@ -28,14 +29,15 @@ type profileRecord struct {
 
 // ProfileStore is a thread-safe JSON flat-file store for profiles.
 type ProfileStore struct {
-	mu   sync.RWMutex
-	path string
+	mu    sync.RWMutex
+	path  string
+	vault *vault.Vault
 }
 
 // NewProfileStore creates a ProfileStore backed by dir/profiles.json.
-func NewProfileStore(dir string) *ProfileStore {
+func NewProfileStore(dir string, v *vault.Vault) *ProfileStore {
 	_ = os.MkdirAll(dir, 0o700)
-	return &ProfileStore{path: filepath.Join(dir, "profiles.json")}
+	return &ProfileStore{path: filepath.Join(dir, "profiles.json"), vault: v}
 }
 
 func (s *ProfileStore) load() ([]profileRecord, error) {
@@ -46,6 +48,17 @@ func (s *ProfileStore) load() ([]profileRecord, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read profiles: %w", err)
 	}
+
+	if s.vault != nil && s.vault.IsInitialized() {
+		if !s.vault.IsUnlocked() {
+			return nil, errors.New("vault is locked")
+		}
+		data, err = s.vault.Decrypt(data)
+		if err != nil {
+			return nil, fmt.Errorf("decrypt profiles: %w", err)
+		}
+	}
+
 	var records []profileRecord
 	if err := json.Unmarshal(data, &records); err != nil {
 		return nil, fmt.Errorf("parse profiles: %w", err)
@@ -58,6 +71,17 @@ func (s *ProfileStore) save(records []profileRecord) error {
 	if err != nil {
 		return fmt.Errorf("marshal profiles: %w", err)
 	}
+
+	if s.vault != nil && s.vault.IsInitialized() {
+		if !s.vault.IsUnlocked() {
+			return errors.New("vault is locked")
+		}
+		data, err = s.vault.Encrypt(data)
+		if err != nil {
+			return fmt.Errorf("encrypt profiles: %w", err)
+		}
+	}
+
 	tmp := s.path + ".tmp"
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return fmt.Errorf("write profiles tmp: %w", err)

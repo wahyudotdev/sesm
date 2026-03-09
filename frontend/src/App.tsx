@@ -1,4 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { useCallback } from 'react'
+import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -8,6 +9,10 @@ import { Placeholder } from '@/pages/Placeholder'
 import { PortForward } from '@/pages/PortForward'
 import { Profiles } from '@/pages/Profiles'
 import { Terminal } from '@/pages/Terminal'
+import { VaultSetup } from '@/pages/VaultSetup'
+import { VaultUnlock } from '@/pages/VaultUnlock'
+import { Spinner } from '@/components/ui/Spinner'
+import { vaultApi } from '@/api/vault'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,8 +23,36 @@ const queryClient = new QueryClient({
   },
 })
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
+const AppInner = () => {
+  const qc = useQueryClient()
+
+  const { data: vaultStatus, isLoading } = useQuery({
+    queryKey: ['vault-status'],
+    queryFn: vaultApi.status,
+    staleTime: 0,
+  })
+
+  const handleVaultReady = useCallback(() => {
+    qc.invalidateQueries({ queryKey: ['vault-status'] })
+  }, [qc])
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg-base)]">
+        <Spinner />
+      </div>
+    )
+  }
+
+  if (!vaultStatus?.initialized) {
+    return <VaultSetup onComplete={handleVaultReady} />
+  }
+
+  if (!vaultStatus?.unlocked) {
+    return <VaultUnlock method={vaultStatus.method} onUnlock={handleVaultReady} />
+  }
+
+  return (
     <BrowserRouter>
       <Routes>
         <Route element={<AppLayout />}>
@@ -49,6 +82,12 @@ const App = () => (
         </Route>
       </Routes>
     </BrowserRouter>
+  )
+}
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <AppInner />
   </QueryClientProvider>
 )
 

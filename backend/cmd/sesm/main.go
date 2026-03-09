@@ -18,6 +18,7 @@ import (
 	"sesm/internal/middleware"
 	"sesm/internal/service"
 	"sesm/internal/store"
+	"sesm/internal/vault"
 )
 
 //go:embed web/dist
@@ -27,10 +28,22 @@ func main() {
 	requirePlugin()
 
 	dir := dataDir()
-	profileStore := store.NewProfileStore(dir)
-	instanceStore := store.NewInstanceStore(dir)
-	sessionStore := store.NewSessionStore(dir)
-	ruleStore := store.NewRuleStore(dir)
+
+	// Resolve port before initializing vault (WebAuthn needs the origin with port).
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = resolvePort("11200")
+	}
+
+	v, err := vault.New(filepath.Join(dir, "vault.json"), port)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	profileStore := store.NewProfileStore(dir, v)
+	instanceStore := store.NewInstanceStore(dir, v)
+	sessionStore := store.NewSessionStore(dir, v)
+	ruleStore := store.NewRuleStore(dir, v)
 	statsStore := store.NewStatsStore(profileStore, sessionStore)
 	sessionSvc := service.NewSessionService(profileStore, sessionStore, ruleStore)
 
@@ -40,6 +53,7 @@ func main() {
 	termH := handler.NewTerminalHandler(sessionSvc)
 	sessionH := handler.NewSessionHandler(sessionSvc, sessionStore)
 	ruleH := handler.NewRuleHandler(ruleStore, sessionSvc)
+	vaultH := handler.NewVaultHandler(v)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", handler.Health)
@@ -57,13 +71,17 @@ func main() {
 	mux.HandleFunc("PATCH /api/rules/{id}/toggle", ruleH.Toggle)
 	mux.HandleFunc("DELETE /api/rules/{id}", ruleH.Delete)
 	mux.HandleFunc("GET /api/terminal/ws", termH.Connect)
+	// Vault routes
+	mux.HandleFunc("GET /api/vault/status", vaultH.Status)
+	mux.HandleFunc("POST /api/vault/setup/password", vaultH.SetupPassword)
+	mux.HandleFunc("POST /api/vault/setup/passkey/begin", vaultH.BeginPasskeySetup)
+	mux.HandleFunc("POST /api/vault/setup/passkey/finish", vaultH.FinishPasskeySetup)
+	mux.HandleFunc("POST /api/vault/unlock/password", vaultH.UnlockPassword)
+	mux.HandleFunc("POST /api/vault/unlock/passkey/begin", vaultH.BeginPasskeyUnlock)
+	mux.HandleFunc("POST /api/vault/unlock/passkey/finish", vaultH.FinishPasskeyUnlock)
 	mux.Handle("/", spaHandler())
 
 	h := middleware.CORS(mux)
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = resolvePort("11200")
-	}
 	addr := ":" + port
 	log.Printf("SESM listening on %s", addr)
 	go openBrowser("http://localhost:" + port)

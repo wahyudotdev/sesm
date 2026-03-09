@@ -8,18 +8,21 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"sesm/internal/vault"
 )
 
 // InstanceStore persists aliases for EC2/SSM instances.
 type InstanceStore struct {
-	mu   sync.RWMutex
-	path string
+	mu    sync.RWMutex
+	path  string
+	vault *vault.Vault
 }
 
 // NewInstanceStore creates an InstanceStore backed by dir/instances.json.
-func NewInstanceStore(dir string) *InstanceStore {
+func NewInstanceStore(dir string, v *vault.Vault) *InstanceStore {
 	_ = os.MkdirAll(dir, 0o700)
-	return &InstanceStore{path: filepath.Join(dir, "instances.json")}
+	return &InstanceStore{path: filepath.Join(dir, "instances.json"), vault: v}
 }
 
 func (s *InstanceStore) load() (map[string]string, error) {
@@ -30,6 +33,17 @@ func (s *InstanceStore) load() (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read instances: %w", err)
 	}
+
+	if s.vault != nil && s.vault.IsInitialized() {
+		if !s.vault.IsUnlocked() {
+			return nil, errors.New("vault is locked")
+		}
+		data, err = s.vault.Decrypt(data)
+		if err != nil {
+			return nil, fmt.Errorf("decrypt instances: %w", err)
+		}
+	}
+
 	var aliases map[string]string
 	if err := json.Unmarshal(data, &aliases); err != nil {
 		return nil, fmt.Errorf("parse instances: %w", err)
@@ -42,6 +56,17 @@ func (s *InstanceStore) save(aliases map[string]string) error {
 	if err != nil {
 		return fmt.Errorf("marshal instances: %w", err)
 	}
+
+	if s.vault != nil && s.vault.IsInitialized() {
+		if !s.vault.IsUnlocked() {
+			return errors.New("vault is locked")
+		}
+		data, err = s.vault.Encrypt(data)
+		if err != nil {
+			return fmt.Errorf("encrypt instances: %w", err)
+		}
+	}
+
 	tmp := s.path + ".tmp"
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return fmt.Errorf("write instances tmp: %w", err)
