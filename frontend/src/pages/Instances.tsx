@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/Input'
 import type { Instance } from '@/types'
 
 const instanceStateVariant = (state: Instance['state']) => {
-  const map = { running: 'success', stopped: 'default', pending: 'warning', terminated: 'danger' } as const
+  const map = { running: 'success', offline: 'default' } as const
   return map[state]
 }
 

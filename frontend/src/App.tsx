@@ -6,6 +6,7 @@ import { Dashboard } from '@/pages/Dashboard'
 import { Instances } from '@/pages/Instances'
 import { Placeholder } from '@/pages/Placeholder'
 import { Profiles } from '@/pages/Profiles'
+import { Terminal } from '@/pages/Terminal'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,15 +25,7 @@ const App = () => (
           <Route index element={<Dashboard />} />
           <Route path="/profiles" element={<Profiles />} />
           <Route path="/instances" element={<Instances />} />
-          <Route
-            path="/terminal"
-            element={
-              <Placeholder
-                title="Terminal Sessions"
-                description="Open an interactive SSM terminal session on any running EC2 instance. Coming soon."
-              />
-            }
-          />
+          <Route path="/terminal" element={<Terminal />} />
           <Route
             path="/port-forward"
             element={

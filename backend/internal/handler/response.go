@@ -1,13 +1,20 @@
 package handler
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"encoding/json"
+	"net/http"
+)
 
-// ok sends a successful JSON response.
-func ok(c *fiber.Ctx, data any) error {
-	return c.JSON(fiber.Map{"data": data, "error": nil})
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
-// fail sends an error JSON response with the given HTTP status.
-func fail(c *fiber.Ctx, status int, msg string) error {
-	return c.Status(status).JSON(fiber.Map{"data": nil, "error": msg})
+func ok(w http.ResponseWriter, data any) {
+	writeJSON(w, http.StatusOK, map[string]any{"data": data, "error": nil})
+}
+
+func fail(w http.ResponseWriter, status int, msg string) {
+	writeJSON(w, status, map[string]any{"data": nil, "error": msg})
 }

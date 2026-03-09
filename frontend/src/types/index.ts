@@ -25,11 +25,10 @@ export interface Instance {
   instanceId: string
   name: string
   type: string
-  state: 'running' | 'stopped' | 'pending' | 'terminated'
+  state: 'running' | 'offline'
   platform: string
   privateIp: string
-  publicIp?: string
-  launchTime: string
+  resourceType: string
 }
 
 export interface Session {

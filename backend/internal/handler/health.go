@@ -1,8 +1,8 @@
 package handler
 
-import "github.com/gofiber/fiber/v2"
+import "net/http"
 
 // Health returns a liveness response.
-func Health(c *fiber.Ctx) error {
-	return ok(c, fiber.Map{"status": "ok"})
+func Health(w http.ResponseWriter, r *http.Request) {
+	ok(w, map[string]string{"status": "ok"})
 }

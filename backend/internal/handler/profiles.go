@@ -1,67 +1,71 @@
 package handler
 
 import (
-	"errors"
-
-	"github.com/gofiber/fiber/v2"
+	"encoding/json"
+	"net/http"
 
 	"sesm/internal/model"
-	"sesm/internal/repository"
+	"sesm/internal/store"
 )
 
 // ProfileHandler groups HTTP handlers for the profiles resource.
 type ProfileHandler struct {
-	repo *repository.ProfileRepo
+	store *store.ProfileStore
 }
 
-// NewProfileHandler creates a ProfileHandler with the given repo.
-func NewProfileHandler(repo *repository.ProfileRepo) *ProfileHandler {
-	return &ProfileHandler{repo: repo}
+// NewProfileHandler creates a ProfileHandler with the given store.
+func NewProfileHandler(s *store.ProfileStore) *ProfileHandler {
+	return &ProfileHandler{store: s}
 }
 
 // List returns all configured AWS profiles.
-func (h *ProfileHandler) List(c *fiber.Ctx) error {
-	profiles, err := h.repo.List(c.Context())
+func (h *ProfileHandler) List(w http.ResponseWriter, r *http.Request) {
+	profiles, err := h.store.List(r.Context())
 	if err != nil {
-		return fail(c, fiber.StatusInternalServerError, err.Error())
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
 	}
-
-	return ok(c, profiles)
+	ok(w, profiles)
 }
 
 // Create saves a new AWS profile.
-func (h *ProfileHandler) Create(c *fiber.Ctx) error {
+func (h *ProfileHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req model.CreateProfileRequest
-	if err := c.BodyParser(&req); err != nil {
-		return fail(c, fiber.StatusBadRequest, "invalid request body")
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		fail(w, http.StatusBadRequest, "invalid request body")
+		return
 	}
 
 	if req.Name == "" || req.AccessKeyID == "" || req.SecretAccessKey == "" || req.Region == "" {
-		return fail(c, fiber.StatusBadRequest, "name, region, accessKeyId and secretAccessKey are required")
+		fail(w, http.StatusBadRequest, "name, region, accessKeyId and secretAccessKey are required")
+		return
 	}
 
-	profile, err := h.repo.Create(c.Context(), req)
+	profile, err := h.store.Create(r.Context(), req)
 	if err != nil {
-		return fail(c, fiber.StatusInternalServerError, err.Error())
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": profile, "error": nil})
+	writeJSON(w, http.StatusCreated, map[string]any{"data": profile, "error": nil})
 }
 
 // Delete removes a profile by ID.
-func (h *ProfileHandler) Delete(c *fiber.Ctx) error {
-	id := c.Params("id")
+func (h *ProfileHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
 	if id == "" {
-		return fail(c, fiber.StatusBadRequest, "id is required")
+		fail(w, http.StatusBadRequest, "id is required")
+		return
 	}
 
-	if err := h.repo.Delete(c.Context(), id); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return fail(c, fiber.StatusNotFound, "profile not found")
+	if err := h.store.Delete(r.Context(), id); err != nil {
+		if err.Error() == "not found" {
+			fail(w, http.StatusNotFound, "profile not found")
+			return
 		}
-
-		return fail(c, fiber.StatusInternalServerError, err.Error())
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
 	}
 
-	return ok(c, nil)
+	ok(w, nil)
 }

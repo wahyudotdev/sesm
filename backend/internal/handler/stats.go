@@ -1,27 +1,27 @@
 package handler
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"net/http"
 
-	"sesm/internal/repository"
+	"sesm/internal/store"
 )
 
 // StatsHandler groups HTTP handlers for dashboard statistics.
 type StatsHandler struct {
-	repo *repository.StatsRepo
+	store *store.StatsStore
 }
 
-// NewStatsHandler creates a StatsHandler with the given repo.
-func NewStatsHandler(repo *repository.StatsRepo) *StatsHandler {
-	return &StatsHandler{repo: repo}
+// NewStatsHandler creates a StatsHandler with the given store.
+func NewStatsHandler(s *store.StatsStore) *StatsHandler {
+	return &StatsHandler{store: s}
 }
 
 // GetStats returns dashboard statistics.
-func (h *StatsHandler) GetStats(c *fiber.Ctx) error {
-	stats, err := h.repo.GetDashboardStats(c.Context())
+func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := h.store.GetDashboardStats(r.Context())
 	if err != nil {
-		return fail(c, fiber.StatusInternalServerError, err.Error())
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
 	}
-
-	return ok(c, stats)
+	ok(w, stats)
 }

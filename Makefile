@@ -58,11 +58,11 @@ embed:
 ## build-backend: compile the Go binary (with embedded frontend)
 build-backend:
 	@echo "Building backend binary..."
-	cd $(BACKEND_DIR) && CGO_ENABLED=0 $(GO) build -ldflags="-s -w" -o ../$(BINARY) ./cmd/sesm
+	cd $(BACKEND_DIR) && CGO_ENABLED=1 $(GO) build -ldflags="-s -w" -o ../$(BINARY) ./cmd/sesm
 
 ## build-backend-dev: build backend without embedded frontend (for backend-only dev)
 build-backend-dev:
-	cd $(BACKEND_DIR) && CGO_ENABLED=0 $(GO) build -o ../$(BINARY) ./cmd/sesm
+	cd $(BACKEND_DIR) && CGO_ENABLED=1 $(GO) build -o ../$(BINARY) ./cmd/sesm
 
 # ─── Lint ──────────────────────────────────────────────────────────────────────
 
