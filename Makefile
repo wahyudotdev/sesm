@@ -6,14 +6,24 @@ BACKEND_DIR   := backend
 FRONTEND_DIR  := frontend
 FRONTEND_DIST := $(FRONTEND_DIR)/dist
 EMBED_DIR     := $(BACKEND_DIR)/cmd/sesm/web/dist
+DIST_DIR      := dist
 GO            := go
 GOLANGCI      := golangci-lint
 NPM           := npm
+VERSION       ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+LDFLAGS       := -s -w -X main.version=$(VERSION)
+
+# Cross-compilation toolchains (install via Homebrew on macOS):
+#   Linux:   brew install FiloSottile/musl-cross/musl-cross
+#   Windows: brew install mingw-w64
+LINUX_CC  ?= x86_64-linux-musl-gcc
+WIN_CC    ?= x86_64-w64-mingw32-gcc
 
 .PHONY: all dev build build-backend build-frontend \
         lint lint-backend lint-frontend \
         fmt fmt-backend fmt-frontend \
         test test-backend \
+        dist dist-mac dist-linux dist-windows \
         clean install-tools help
 
 # ─── Default ───────────────────────────────────────────────────────────────────
@@ -63,6 +73,41 @@ build-backend:
 ## build-backend-dev: build backend without embedded frontend (for backend-only dev)
 build-backend-dev:
 	cd $(BACKEND_DIR) && CGO_ENABLED=1 $(GO) build -o ../$(BINARY) ./cmd/sesm
+
+# ─── Distribution (cross-platform) ─────────────────────────────────────────────
+
+## dist: build release binaries for all platforms into dist/
+dist: build-frontend embed dist-mac dist-linux dist-windows
+	@echo "Binaries in $(DIST_DIR)/:"
+	@ls -lh $(DIST_DIR)/
+
+## dist-mac: build macOS binary (arm64 + amd64 universal)
+dist-mac: $(DIST_DIR)
+	@echo "Building macOS arm64..."
+	cd $(BACKEND_DIR) && CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
+	  $(GO) build -ldflags="$(LDFLAGS)" -o ../$(DIST_DIR)/$(BINARY)-darwin-arm64 ./cmd/sesm
+	@echo "Building macOS amd64..."
+	cd $(BACKEND_DIR) && CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
+	  $(GO) build -ldflags="$(LDFLAGS)" -o ../$(DIST_DIR)/$(BINARY)-darwin-amd64 ./cmd/sesm
+	@echo "Creating macOS universal binary..."
+	lipo -create -output $(DIST_DIR)/$(BINARY)-darwin-universal \
+	  $(DIST_DIR)/$(BINARY)-darwin-arm64 \
+	  $(DIST_DIR)/$(BINARY)-darwin-amd64
+
+## dist-linux: build Linux amd64 binary (requires musl-cross: brew install FiloSottile/musl-cross/musl-cross)
+dist-linux: $(DIST_DIR)
+	@echo "Building Linux amd64..."
+	cd $(BACKEND_DIR) && CGO_ENABLED=1 GOOS=linux GOARCH=amd64 CC=$(LINUX_CC) \
+	  $(GO) build -ldflags="$(LDFLAGS)" -o ../$(DIST_DIR)/$(BINARY)-linux-amd64 ./cmd/sesm
+
+## dist-windows: build Windows amd64 binary (requires mingw-w64: brew install mingw-w64)
+dist-windows: $(DIST_DIR)
+	@echo "Building Windows amd64..."
+	cd $(BACKEND_DIR) && CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=$(WIN_CC) \
+	  $(GO) build -ldflags="$(LDFLAGS)" -o ../$(DIST_DIR)/$(BINARY)-windows-amd64.exe ./cmd/sesm
+
+$(DIST_DIR):
+	@mkdir -p $(DIST_DIR)
 
 # ─── Lint ──────────────────────────────────────────────────────────────────────
 
@@ -150,6 +195,7 @@ install-tools:
 clean:
 	@echo "Cleaning..."
 	rm -f $(BINARY)
+	rm -rf $(DIST_DIR)
 	rm -rf $(FRONTEND_DIST)
 	rm -rf $(EMBED_DIR)
 	rm -f $(BACKEND_DIR)/coverage.out $(BACKEND_DIR)/coverage.html
