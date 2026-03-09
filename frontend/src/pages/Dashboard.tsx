@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import {
   KeyRound,
   Activity,
-  Terminal,
+  Terminal as TerminalIcon,
+  Server,
   ArrowRightLeft,
   Clock,
   TrendingUp,
@@ -165,7 +166,7 @@ export const Dashboard: FC = () => {
         <StatCard
           label="Terminal Sessions"
           value={stats.totalSessions}
-          icon={Terminal}
+          icon={TerminalIcon}
           accent="info"
         />
         <StatCard
@@ -184,10 +185,10 @@ export const Dashboard: FC = () => {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <QuickAction
-            icon={Terminal}
-            label="Open Terminal"
-            description="Start an SSM shell session on an EC2 instance"
-            to="/terminal"
+            icon={Server}
+            label="Manage Instances"
+            description="View and connect to your EC2/SSM instances"
+            to="/instances"
             accent="brand"
           />
           <QuickAction
@@ -225,13 +226,13 @@ export const Dashboard: FC = () => {
 
         {stats.recentSessions.length === 0 ? (
           <EmptyState
-            icon={<Terminal size={18} />}
+            icon={<TerminalIcon size={18} />}
             title="No sessions yet"
             description="Connect to an EC2 instance to start your first session."
             action={
-              <Link to="/terminal">
-                <Button variant="primary" size="sm" icon={<Terminal size={12} />}>
-                  Start Terminal
+              <Link to="/instances">
+                <Button variant="primary" size="sm" icon={<Server size={12} />}>
+                  Go to Instances
                 </Button>
               </Link>
             }
@@ -246,7 +247,7 @@ export const Dashboard: FC = () => {
                 {/* Type icon */}
                 <div className="w-8 h-8 rounded-lg bg-[var(--color-bg-elevated)] border border-[var(--color-border)] flex items-center justify-center shrink-0">
                   {session.type === 'terminal' ? (
-                    <Terminal size={13} className="text-[var(--color-brand)]" />
+                    <TerminalIcon size={13} className="text-[var(--color-brand)]" />
                   ) : (
                     <ArrowRightLeft size={13} className="text-[var(--color-info)]" />
                   )}

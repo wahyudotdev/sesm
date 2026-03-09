@@ -24,6 +24,7 @@ export interface CreateProfileRequest {
 export interface Instance {
   instanceId: string
   name: string
+  alias?: string
   type: string
   state: 'running' | 'offline'
   platform: string

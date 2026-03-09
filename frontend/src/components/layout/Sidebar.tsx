@@ -23,7 +23,6 @@ const navItems: NavItem[] = [
   { label: 'Dashboard', to: '/', icon: LayoutDashboard },
   { label: 'Profiles', to: '/profiles', icon: KeyRound },
   { label: 'Instances', to: '/instances', icon: Server },
-  { label: 'Terminal', to: '/terminal', icon: Terminal },
   { label: 'Port Forward', to: '/port-forward', icon: ArrowRightLeft },
   { label: 'History', to: '/history', icon: History },
 ]

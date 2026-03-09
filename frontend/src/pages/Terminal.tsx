@@ -1,16 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import {
-  Terminal as TerminalIcon,
-  Server,
-  KeyRound,
-  Wifi,
-  WifiOff,
-  X,
-  ChevronDown,
-  AlertCircle,
-  Loader2,
-} from 'lucide-react'
-import { useState, useCallback } from 'react'
+import { Terminal as TerminalIcon, Server, KeyRound, Wifi, WifiOff, X, ChevronDown, AlertCircle, Loader2 } from 'lucide-react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 import type { FC } from 'react'
 import type { TerminalStatus } from '@/components/terminal/XTerm'
@@ -115,7 +106,7 @@ const InstanceSelector: FC<{
               Fetching instances…
             </span>
           ) : current ? (
-            current.name || current.instanceId
+            current.alias || current.name || current.instanceId
           ) : (
             <span className="text-[var(--color-text-muted)]">
               {disabled ? 'Select a profile first' : 'Select instance'}
@@ -147,8 +138,11 @@ const InstanceSelector: FC<{
               >
                 <Server size={12} className="shrink-0 opacity-60" />
                 <span className="flex-1 min-w-0">
-                  <span className="block truncate font-medium">{inst.name || inst.instanceId}</span>
-                  <span className="text-[10px] text-[var(--color-text-muted)] font-mono">{inst.instanceId}</span>
+                  <span className="block truncate font-medium">{inst.alias || inst.name || inst.instanceId}</span>
+                  <span className="text-[10px] text-[var(--color-text-muted)] font-mono">
+                    {inst.instanceId}
+                    {inst.alias && <span className="ml-1 opacity-60">({inst.name})</span>}
+                  </span>
                 </span>
                 <span className="text-[10px] text-[var(--color-text-muted)] shrink-0">{inst.privateIp}</span>
                 <Badge variant={inst.state === 'running' ? 'success' : 'default'} dot>
@@ -175,10 +169,12 @@ interface TermTab {
 // ─── Terminal Page ────────────────────────────────────────────────────────────
 
 export const Terminal: FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [selectedProfileId, setSelectedProfileId] = useState('')
   const [selectedInstanceId, setSelectedInstanceId] = useState('')
   const [tabs, setTabs] = useState<TermTab[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
+  const autoConnectAttempted = useRef<string | null>(null)
 
   const { data: profiles = [], isLoading: loadingProfiles } = useQuery({
     queryKey: ['profiles'],
@@ -197,19 +193,49 @@ export const Terminal: FC = () => {
     setSelectedInstanceId('')
   }
 
-  const handleConnect = (): void => {
-    if (!selectedProfileId || !selectedInstanceId) return
+  const handleConnect = useCallback((profileIdOverride?: string, instanceIdOverride?: string): void => {
+    const pid = profileIdOverride || selectedProfileId
+    const iid = instanceIdOverride || selectedInstanceId
+    if (!pid || !iid) return
 
-    const instance = safeInstances.find((i) => i.instanceId === selectedInstanceId)
-    const profile = profiles.find((p) => p.id === selectedProfileId)
-    const label = `${instance?.name || selectedInstanceId} (${profile?.name ?? '…'})`
-    const wsUrl = buildWsUrl(selectedProfileId, selectedInstanceId)
-    const id = `${selectedProfileId}-${selectedInstanceId}-${Date.now()}`
+    const instance = safeInstances.find((i) => i.instanceId === iid)
+    const profile = profiles.find((p) => p.id === pid)
+    const instanceLabel = instance?.alias || instance?.name || iid
+    const label = `${instanceLabel} (${profile?.name ?? '…'})`
+    const wsUrl = buildWsUrl(pid, iid)
+    const id = `${pid}-${iid}-${Date.now()}`
 
     const tab: TermTab = { id, label, wsUrl, status: 'connecting' }
     setTabs((prev) => [...prev, tab])
     setActiveTabId(id)
-  }
+  }, [selectedProfileId, selectedInstanceId, safeInstances, profiles])
+
+  // Handle URL parameters for auto-connect
+  useEffect(() => {
+    const pid = searchParams.get('profileId')
+    const iid = searchParams.get('instanceId')
+
+    if (pid && iid && profiles.length > 0 && !loadingProfiles) {
+      // Set selections for UI visibility
+      if (selectedProfileId !== pid) setSelectedProfileId(pid)
+      if (selectedInstanceId !== iid) setSelectedInstanceId(iid)
+
+      // Only attempt connection if data is ready for the correct profile
+      const instanceReady = safeInstances.some(i => i.instanceId === iid)
+      const attemptKey = `${pid}-${iid}`
+
+      if (instanceReady && autoConnectAttempted.current !== attemptKey) {
+        autoConnectAttempted.current = attemptKey
+        handleConnect(pid, iid)
+
+        // Clear params so refreshing doesn't keep opening new tabs indefinitely
+        // but wait a bit to avoid race with current render
+        setTimeout(() => {
+          setSearchParams({}, { replace: true })
+        }, 100)
+      }
+    }
+  }, [searchParams, profiles, loadingProfiles, safeInstances, handleConnect, setSearchParams, selectedProfileId, selectedInstanceId])
 
   const handleStatusChange = useCallback((tabId: string, status: TerminalStatus): void => {
     setTabs((prev) => prev.map((t) => (t.id === tabId ? { ...t, status } : t)))
@@ -249,7 +275,7 @@ export const Terminal: FC = () => {
           size="md"
           icon={<TerminalIcon size={13} />}
           disabled={!canConnect}
-          onClick={handleConnect}
+          onClick={() => handleConnect()}
         >
           Connect
         </Button>
