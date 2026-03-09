@@ -152,7 +152,7 @@ export const Instances: FC = () => {
 
   const handleConnect = (instance: Instance & { profileId: string }) => {
     const name = instance.alias || instance.name || instance.instanceId
-    navigate(`/terminal?profileId=${instance.profileId}&instanceId=${instance.instanceId}&instanceName=${encodeURIComponent(name)}`)
+    window.open(`/terminal?profileId=${instance.profileId}&instanceId=${instance.instanceId}&instanceName=${encodeURIComponent(name)}`, '_blank')
   }
 
   return (
