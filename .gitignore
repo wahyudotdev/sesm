@@ -1,5 +1,4 @@
 # Build outputs
-sesm
 backend/web/dist/
 frontend/dist/
 frontend/node_modules/
