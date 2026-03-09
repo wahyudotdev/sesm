@@ -52,10 +52,13 @@ export interface PortForwardRule {
   name: string
   profileId: string
   instanceId: string
+  instanceName: string
   localPort: number
   remotePort: number
   remoteHost: string
+  enabled: boolean
   createdAt: string
+  updatedAt: string
 }
 
 export interface DashboardStats {

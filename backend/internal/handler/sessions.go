@@ -50,7 +50,7 @@ func (h *SessionHandler) StartPortForward(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	id, err := h.svc.StartPortForward(r.Context(), req.ProfileID, req.InstanceID, req.InstanceName, req.LocalPort, req.RemotePort, req.RemoteHost)
+	id, err := h.svc.StartPortForward(r.Context(), req.ProfileID, req.InstanceID, req.InstanceName, req.LocalPort, req.RemotePort, req.RemoteHost, "")
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return

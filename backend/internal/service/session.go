@@ -36,10 +36,12 @@ type ManagedSession struct {
 
 // SessionService manages the lifecycle of SSM sessions.
 type SessionService struct {
-	profiles *store.ProfileStore
-	sessions *store.SessionStore
-	active   map[string]*ManagedSession
-	mu       sync.RWMutex
+	profiles   *store.ProfileStore
+	sessions   *store.SessionStore
+	ruleStore  *store.RuleStore
+	active     map[string]*ManagedSession // key: sessionID
+	ruleToSess map[string]string          // key: ruleID, value: sessionID
+	mu         sync.RWMutex
 }
 
 // CheckPlugin verifies that session-manager-plugin is installed and on PATH.
@@ -55,11 +57,45 @@ func CheckPlugin() error {
 }
 
 // NewSessionService creates a SessionService.
-func NewSessionService(p *store.ProfileStore, s *store.SessionStore) *SessionService {
-	return &SessionService{
-		profiles: p,
-		sessions: s,
-		active:   make(map[string]*ManagedSession),
+func NewSessionService(p *store.ProfileStore, s *store.SessionStore, r *store.RuleStore) *SessionService {
+	svc := &SessionService{
+		profiles:   p,
+		sessions:   s,
+		ruleStore:  r,
+		active:     make(map[string]*ManagedSession),
+		ruleToSess: make(map[string]string),
+	}
+
+	// Periodically sync rules to ensure enabled rules are running
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		for range ticker.C {
+			svc.SyncRules(context.Background())
+		}
+	}()
+
+	return svc
+}
+
+// SyncRules ensures all enabled port-forwarding rules have active sessions.
+func (s *SessionService) SyncRules(ctx context.Context) {
+	rules, err := s.ruleStore.List(ctx)
+	if err != nil {
+		return
+	}
+
+	for _, rule := range rules {
+		s.mu.RLock()
+		sessID, exists := s.ruleToSess[rule.ID]
+		s.mu.RUnlock()
+
+		if rule.Enabled && !exists {
+			fmt.Printf("Auto-reconnecting port forward rule: %s\n", rule.Name)
+			_, _ = s.StartPortForward(ctx, rule.ProfileID, rule.InstanceID, rule.InstanceName, rule.LocalPort, rule.RemotePort, rule.RemoteHost, rule.ID)
+		} else if !rule.Enabled && exists {
+			fmt.Printf("Stopping disabled port forward rule: %s\n", rule.Name)
+			_ = s.Terminate(ctx, sessID)
+		}
 	}
 }
 
@@ -140,13 +176,13 @@ func (s *SessionService) StartTerminal(ctx context.Context, profileID, instanceI
 	s.mu.Unlock()
 
 	// Monitor for exit
-	go s.monitor(sess.ID, managed)
+	go s.monitor(sess.ID, "", managed)
 
 	return sess.ID, ptm, nil
 }
 
 // StartPortForward initiates a port-forwarding session.
-func (s *SessionService) StartPortForward(ctx context.Context, profileID, instanceID, instanceName string, localPort, remotePort int, remoteHost string) (string, error) {
+func (s *SessionService) StartPortForward(ctx context.Context, profileID, instanceID, instanceName string, localPort, remotePort int, remoteHost string, ruleID string) (string, error) {
 	profile, err := s.profiles.GetByID(ctx, profileID)
 	if err != nil {
 		return "", fmt.Errorf("get profile: %w", err)
@@ -235,9 +271,12 @@ func (s *SessionService) StartPortForward(ctx context.Context, profileID, instan
 
 	s.mu.Lock()
 	s.active[sess.ID] = managed
+	if ruleID != "" {
+		s.ruleToSess[ruleID] = sess.ID
+	}
 	s.mu.Unlock()
 
-	go s.monitor(sess.ID, managed)
+	go s.monitor(sess.ID, ruleID, managed)
 
 	return sess.ID, nil
 }
@@ -251,6 +290,13 @@ func (s *SessionService) Terminate(ctx context.Context, id string) error {
 		return fmt.Errorf("session %s not active or already terminated", id)
 	}
 	delete(s.active, id)
+	// Clear rule mapping if exists
+	for rid, sid := range s.ruleToSess {
+		if sid == id {
+			delete(s.ruleToSess, rid)
+			break
+		}
+	}
 	s.mu.Unlock()
 
 	managed.Cancel()
@@ -261,12 +307,15 @@ func (s *SessionService) Terminate(ctx context.Context, id string) error {
 	return s.sessions.UpdateStatus(ctx, id, model.SessionStatusTerminated)
 }
 
-func (s *SessionService) monitor(id string, m *ManagedSession) {
+func (s *SessionService) monitor(id string, ruleID string, m *ManagedSession) {
 	_ = m.Cmd.Wait()
 
 	s.mu.Lock()
 	if _, ok := s.active[id]; ok {
 		delete(s.active, id)
+		if ruleID != "" {
+			delete(s.ruleToSess, ruleID)
+		}
 		s.mu.Unlock()
 		// If it exited on its own, update status
 		_ = s.sessions.UpdateStatus(context.Background(), id, model.SessionStatusTerminated)

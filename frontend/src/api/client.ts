@@ -28,6 +28,12 @@ export async function post<T>(path: string, body: unknown): Promise<T> {
   return res.data.data as T
 }
 
+export async function patch<T>(path: string, body: unknown): Promise<T> {
+  const res = await client.patch<ApiResponse<T>>(path, body)
+  if (res.data.error) throw new Error(res.data.error)
+  return res.data.data as T
+}
+
 export async function del<T>(path: string): Promise<T> {
   const res = await client.delete<ApiResponse<T>>(path)
   if (res.data.error) throw new Error(res.data.error)
