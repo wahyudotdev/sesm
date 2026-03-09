@@ -30,7 +30,7 @@ func newID() string {
 type ManagedSession struct {
 	Session *model.Session
 	Cmd     *exec.Cmd
-	Ptm     *os.File // Only for terminal sessions
+	Ptm     pty.PTY // Only for terminal sessions
 	Cancel  context.CancelFunc
 }
 
@@ -99,8 +99,8 @@ func (s *SessionService) SyncRules(ctx context.Context) {
 	}
 }
 
-// StartTerminal initiates a terminal session and returns the PTY file.
-func (s *SessionService) StartTerminal(ctx context.Context, profileID, instanceID, instanceName string) (string, *os.File, error) {
+// StartTerminal initiates a terminal session and returns the PTY.
+func (s *SessionService) StartTerminal(ctx context.Context, profileID, instanceID, instanceName string) (string, pty.PTY, error) {
 	profile, err := s.profiles.GetByID(ctx, profileID)
 	if err != nil {
 		return "", nil, fmt.Errorf("get profile: %w", err)
@@ -157,7 +157,7 @@ func (s *SessionService) StartTerminal(ctx context.Context, profileID, instanceI
 	)
 	cmd.Env = os.Environ()
 
-	ptm, err := pty.Start(cmd)
+	ptm, err := pty.New(cmd)
 	if err != nil {
 		cancel()
 		_ = s.sessions.UpdateStatus(ctx, sess.ID, model.SessionStatusFailed)
@@ -301,14 +301,18 @@ func (s *SessionService) Terminate(ctx context.Context, id string) error {
 
 	managed.Cancel()
 	if managed.Ptm != nil {
-		_ = managed.Ptm.Close()
+		_ = managed.Ptm.Close() //nolint:errcheck
 	}
 
 	return s.sessions.UpdateStatus(ctx, id, model.SessionStatusTerminated)
 }
 
 func (s *SessionService) monitor(id string, ruleID string, m *ManagedSession) {
-	_ = m.Cmd.Wait()
+	if m.Ptm != nil {
+		_ = m.Ptm.Wait()
+	} else {
+		_ = m.Cmd.Wait()
+	}
 
 	s.mu.Lock()
 	if _, ok := s.active[id]; ok {
@@ -322,9 +326,4 @@ func (s *SessionService) monitor(id string, ruleID string, m *ManagedSession) {
 	} else {
 		s.mu.Unlock()
 	}
-}
-
-// Setsize resizes the PTY.
-func Setsize(ptm *os.File, rows, cols uint16) error {
-	return pty.Setsize(ptm, rows, cols)
 }

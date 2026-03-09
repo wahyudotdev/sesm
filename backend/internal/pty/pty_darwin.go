@@ -53,8 +53,6 @@ func open() (*os.File, *os.File, error) {
 	return ptm, pts, nil
 }
 
-var _ = unsafe.Sizeof(0) // keep unsafe imported for Winsize usage in Setsize
-
 // Open opens a PTY pair and returns (master, slave).
 func Open() (*os.File, *os.File, error) {
 	return open()

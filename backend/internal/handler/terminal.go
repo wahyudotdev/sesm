@@ -87,7 +87,7 @@ func (h *TerminalHandler) Connect(w http.ResponseWriter, r *http.Request) {
 		case ws.OpText:
 			var ctrl resizeMsg
 			if json.Unmarshal(data, &ctrl) == nil && ctrl.Type == "resize" && ctrl.Cols > 0 && ctrl.Rows > 0 {
-				_ = service.Setsize(ptm, ctrl.Rows, ctrl.Cols)
+				_ = ptm.Resize(ctrl.Rows, ctrl.Cols)
 			}
 		case ws.OpBinary:
 			if _, werr := ptm.Write(data); werr != nil {

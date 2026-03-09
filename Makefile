@@ -13,11 +13,6 @@ NPM           := npm
 VERSION       ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS       := -s -w -X main.version=$(VERSION)
 
-# Cross-compilation toolchains (install via Homebrew on macOS):
-#   Linux:   brew install FiloSottile/musl-cross/musl-cross
-#   Windows: brew install mingw-w64
-LINUX_CC  ?= x86_64-linux-musl-gcc
-WIN_CC    ?= x86_64-w64-mingw32-gcc
 
 .PHONY: all dev build build-backend build-frontend \
         lint lint-backend lint-frontend \
@@ -82,7 +77,8 @@ dist: build-frontend embed dist-mac dist-linux dist-windows
 	@ls -lh $(DIST_DIR)/
 
 ## dist-mac: build macOS binary (arm64 + amd64 universal)
-dist-mac: $(DIST_DIR)
+## CGO is required for the Darwin PTY implementation (grantpt/unlockpt/ptsname are libc-only).
+dist-mac: $(DIST_DIR)/
 	@echo "Building macOS arm64..."
 	cd $(BACKEND_DIR) && CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
 	  $(GO) build -ldflags="$(LDFLAGS)" -o ../$(DIST_DIR)/$(BINARY)-darwin-arm64 ./cmd/sesm
@@ -94,19 +90,19 @@ dist-mac: $(DIST_DIR)
 	  $(DIST_DIR)/$(BINARY)-darwin-arm64 \
 	  $(DIST_DIR)/$(BINARY)-darwin-amd64
 
-## dist-linux: build Linux amd64 binary (requires musl-cross: brew install FiloSottile/musl-cross/musl-cross)
-dist-linux: $(DIST_DIR)
+## dist-linux: build Linux amd64 binary
+dist-linux: $(DIST_DIR)/
 	@echo "Building Linux amd64..."
-	cd $(BACKEND_DIR) && CGO_ENABLED=1 GOOS=linux GOARCH=amd64 CC=$(LINUX_CC) \
+	cd $(BACKEND_DIR) && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 	  $(GO) build -ldflags="$(LDFLAGS)" -o ../$(DIST_DIR)/$(BINARY)-linux-amd64 ./cmd/sesm
 
-## dist-windows: build Windows amd64 binary (requires mingw-w64: brew install mingw-w64)
-dist-windows: $(DIST_DIR)
+## dist-windows: build Windows amd64 binary
+dist-windows: $(DIST_DIR)/
 	@echo "Building Windows amd64..."
-	cd $(BACKEND_DIR) && CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=$(WIN_CC) \
+	cd $(BACKEND_DIR) && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
 	  $(GO) build -ldflags="$(LDFLAGS)" -o ../$(DIST_DIR)/$(BINARY)-windows-amd64.exe ./cmd/sesm
 
-$(DIST_DIR):
+$(DIST_DIR)/:
 	@mkdir -p $(DIST_DIR)
 
 # ─── Lint ──────────────────────────────────────────────────────────────────────
