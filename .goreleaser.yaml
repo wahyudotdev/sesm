@@ -4,11 +4,7 @@ project_name: sesm
 
 before:
   hooks:
-    - cd frontend && npm ci
-    - cd frontend && npm run build
-    - rm -rf backend/cmd/sesm/web/dist
-    - mkdir -p backend/cmd/sesm/web
-    - cp -r frontend/dist backend/cmd/sesm/web/dist
+    - make build-frontend embed
 
 builds:
   # macOS requires CGO for the PTY implementation (grantpt/unlockpt/ptsname).
