@@ -70,9 +70,16 @@ func (c *Client) DescribeInstanceInformation(ctx context.Context) ([]InstanceInf
 	return all, nil
 }
 
+// StartSessionInput holds parameters for starting an SSM session.
+type StartSessionInput struct {
+	Target       string              `json:"Target"`
+	DocumentName string              `json:"DocumentName,omitempty"`
+	Parameters   map[string][]string `json:"Parameters,omitempty"`
+}
+
 // StartSession starts an SSM session with the given instance.
-func (c *Client) StartSession(ctx context.Context, instanceID string) (*StartSessionOutput, error) {
-	body, err := json.Marshal(map[string]string{"Target": instanceID})
+func (c *Client) StartSession(ctx context.Context, input *StartSessionInput) (*StartSessionOutput, error) {
+	body, err := json.Marshal(input)
 	if err != nil {
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}

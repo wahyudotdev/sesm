@@ -14,9 +14,9 @@ import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
 import type { Instance, Profile } from '@/types'
 
-const buildWsUrl = (profileId: string, instanceId: string): string => {
+const buildWsUrl = (profileId: string, instanceId: string, instanceName: string): string => {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${proto}//${window.location.host}/api/terminal/ws?profileId=${encodeURIComponent(profileId)}&instanceId=${encodeURIComponent(instanceId)}`
+  return `${proto}//${window.location.host}/api/terminal/ws?profileId=${encodeURIComponent(profileId)}&instanceId=${encodeURIComponent(instanceId)}&instanceName=${encodeURIComponent(instanceName)}`
 }
 
 // ─── Profile Selector ────────────────────────────────────────────────────────
@@ -193,16 +193,16 @@ export const Terminal: FC = () => {
     setSelectedInstanceId('')
   }
 
-  const handleConnect = useCallback((profileIdOverride?: string, instanceIdOverride?: string): void => {
+  const handleConnect = useCallback((profileIdOverride?: string, instanceIdOverride?: string, instanceNameOverride?: string): void => {
     const pid = profileIdOverride || selectedProfileId
     const iid = instanceIdOverride || selectedInstanceId
     if (!pid || !iid) return
 
     const instance = safeInstances.find((i) => i.instanceId === iid)
     const profile = profiles.find((p) => p.id === pid)
-    const instanceLabel = instance?.alias || instance?.name || iid
-    const label = `${instanceLabel} (${profile?.name ?? '…'})`
-    const wsUrl = buildWsUrl(pid, iid)
+    const name = instanceNameOverride || instance?.alias || instance?.name || iid
+    const label = `${name} (${profile?.name ?? '…'})`
+    const wsUrl = buildWsUrl(pid, iid, name)
     const id = `${pid}-${iid}-${Date.now()}`
 
     const tab: TermTab = { id, label, wsUrl, status: 'connecting' }
@@ -214,6 +214,7 @@ export const Terminal: FC = () => {
   useEffect(() => {
     const pid = searchParams.get('profileId')
     const iid = searchParams.get('instanceId')
+    const iname = searchParams.get('instanceName')
 
     if (pid && iid && profiles.length > 0 && !loadingProfiles) {
       // Set selections for UI visibility
@@ -226,10 +227,9 @@ export const Terminal: FC = () => {
 
       if (instanceReady && autoConnectAttempted.current !== attemptKey) {
         autoConnectAttempted.current = attemptKey
-        handleConnect(pid, iid)
+        handleConnect(pid, iid, iname || undefined)
 
         // Clear params so refreshing doesn't keep opening new tabs indefinitely
-        // but wait a bit to avoid race with current render
         setTimeout(() => {
           setSearchParams({}, { replace: true })
         }, 100)

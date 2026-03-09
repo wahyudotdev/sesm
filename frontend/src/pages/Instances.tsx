@@ -151,7 +151,8 @@ export const Instances: FC = () => {
   )
 
   const handleConnect = (instance: Instance & { profileId: string }) => {
-    navigate(`/terminal?profileId=${instance.profileId}&instanceId=${instance.instanceId}`)
+    const name = instance.alias || instance.name || instance.instanceId
+    navigate(`/terminal?profileId=${instance.profileId}&instanceId=${instance.instanceId}&instanceName=${encodeURIComponent(name)}`)
   }
 
   return (
@@ -294,7 +295,17 @@ export const Instances: FC = () => {
                     >
                       Terminal
                     </Button>
-                    <Button variant="secondary" size="sm" icon={<ArrowRightLeft size={12} />} />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<ArrowRightLeft size={12} />}
+                      onClick={() =>
+                        navigate(
+                          `/port-forward?profileId=${instance.profileId}&instanceId=${instance.instanceId}&instanceName=${encodeURIComponent(instance.alias || instance.name || instance.instanceId)}`,
+                        )
+                      }
+                      disabled={instance.state !== 'running'}
+                    />
                   </div>
                 </div>
               ))}

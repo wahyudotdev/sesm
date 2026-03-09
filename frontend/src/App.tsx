@@ -5,6 +5,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { Dashboard } from '@/pages/Dashboard'
 import { Instances } from '@/pages/Instances'
 import { Placeholder } from '@/pages/Placeholder'
+import { PortForward } from '@/pages/PortForward'
 import { Profiles } from '@/pages/Profiles'
 import { Terminal } from '@/pages/Terminal'
 
@@ -26,15 +27,7 @@ const App = () => (
           <Route path="/profiles" element={<Profiles />} />
           <Route path="/instances" element={<Instances />} />
           <Route path="/terminal" element={<Terminal />} />
-          <Route
-            path="/port-forward"
-            element={
-              <Placeholder
-                title="Port Forwarding"
-                description="Tunnel remote ports to your local machine through AWS SSM. Coming soon."
-              />
-            }
-          />
+          <Route path="/port-forward" element={<PortForward />} />
           <Route
             path="/history"
             element={
