@@ -1,0 +1,29 @@
+# Build outputs
+sesm
+backend/web/dist/
+frontend/dist/
+frontend/node_modules/
+
+# Go
+backend/coverage.out
+backend/coverage.html
+backend/*.db
+*.db
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

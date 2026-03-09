@@ -1,0 +1,91 @@
+version: "2"
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  default: none
+  enable:
+    # correctness
+    - errcheck        # check for unchecked errors
+    - gosimple        # simplification suggestions
+    - govet           # go vet checks
+    - ineffassign     # detect ineffectual assignments
+    - staticcheck     # static analysis
+    - unused          # check for unused code
+    # style
+    - gofmt           # enforce gofmt formatting
+    - goimports       # enforce import grouping
+    - misspell        # fix common spelling mistakes
+    - godot           # check comment endings
+    - nlreturn        # enforce newline before return
+    - whitespace      # enforce whitespace rules
+    # bugs
+    - bodyclose       # check HTTP response body is closed
+    - noctx           # find HTTP requests without context
+    - rowserrcheck    # check sql.Rows.Err is checked
+    - sqlclosecheck   # check sql.Rows/Stmt is closed
+    - contextcheck    # check context is not passed as nil
+    # complexity
+    - cyclop          # cyclomatic complexity
+    - gocognit        # cognitive complexity
+    - funlen          # function length
+    # security
+    - gosec           # security problems
+    # imports
+    - depguard        # enforce allowed imports
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment  # not enforced in this project
+
+  goimports:
+    local-prefixes: sesm
+
+  cyclop:
+    max-complexity: 10
+
+  gocognit:
+    min-complexity: 15
+
+  funlen:
+    lines: 80
+    statements: 50
+
+  gosec:
+    excludes:
+      - G304  # file path provided as taint input (needed for reading SSH keys etc.)
+
+  depguard:
+    rules:
+      no-cgo-sqlite:
+        deny:
+          - pkg: github.com/mattn/go-sqlite3
+            desc: "Use modernc.org/sqlite instead (no CGO required)"
+
+  godot:
+    scope: declarations
+    capital: true
+
+  nlreturn:
+    block-size: 3
+
+issues:
+  max-same-issues: 0
+  max-issues-per-linter: 0
+  exclude-rules:
+    - path: "_test\\.go"
+      linters:
+        - funlen
+        - gosec
+        - cyclop
+    - path: "cmd/"
+      linters:
+        - funlen  # main() can be longer
