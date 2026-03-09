@@ -215,7 +215,7 @@ export const Dashboard: FC = () => {
   })
 
   const { data: instancesMap = {} } = useQuery({
-    queryKey: ['instances', 'all', profiles.length],
+    queryKey: ['instances-dashboard', profiles.length],
     queryFn: async () => {
       const all: Record<string, unknown[]> = {}
       await Promise.all(

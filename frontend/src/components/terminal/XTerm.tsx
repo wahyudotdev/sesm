@@ -76,14 +76,29 @@ export const XTerm: FC<XTermProps> = ({ wsUrl, active, onStatusChange }) => {
     term.loadAddon(fitAddon)
     term.open(containerRef.current)
     fitAddon.fit()
-    term.focus() // ← focus immediately so keyboard input works right away
+    term.focus()
+
+    const sendResize = () => {
+      fitAddon.fit()
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }))
+      }
+    }
 
     const ws = new WebSocket(wsUrl)
     ws.binaryType = 'arraybuffer'
 
+    // Timers for deferred resize retries (cleared on cleanup)
+    let retryTimer1: ReturnType<typeof setTimeout>
+    let retryTimer2: ReturnType<typeof setTimeout>
+
     ws.onopen = () => {
       onStatusChange('connected')
-      ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }))
+      sendResize()
+      // Re-send after delays to handle the case where session-manager-plugin
+      // hasn't finished connecting to SSM yet when the first resize arrives.
+      retryTimer1 = setTimeout(sendResize, 1000)
+      retryTimer2 = setTimeout(sendResize, 3000)
     }
 
     ws.onmessage = (e) => {
@@ -133,6 +148,8 @@ export const XTerm: FC<XTermProps> = ({ wsUrl, active, onStatusChange }) => {
     ro.observe(containerRef.current)
 
     return () => {
+      clearTimeout(retryTimer1)
+      clearTimeout(retryTimer2)
       ro.disconnect()
       ws.close()
       term.dispose()
