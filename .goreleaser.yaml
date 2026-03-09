@@ -4,6 +4,7 @@ project_name: sesm
 
 before:
   hooks:
+    - npm --prefix frontend ci
     - make build-frontend embed
 
 builds:
