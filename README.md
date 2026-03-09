@@ -6,12 +6,13 @@ binary that opens directly in your browser.
 
 ## Features
 
-- **Dashboard** — at-a-glance stats for active sessions and port-forwarding tunnels
+- **Dashboard** — at-a-glance stats: total profiles, instances, and active port-forward rules
 - **AWS Profiles** — manage multiple named AWS credential profiles in one place
-- **EC2 Instance browser** — list and search instances across regions; set friendly aliases
+- **EC2 Instance browser** — list instances across regions with names resolved from AWS Name tags
 - **Interactive terminal** — full xterm.js terminal over WebSocket (PTY-backed)
 - **Port forwarding** — start and stop SSM port-forward sessions with a click
-- **Session rules** — define auto-start or auto-terminate rules for sessions
+- **Vault encryption** — all data encrypted at rest; unlock with a password or passkey (WebAuthn/FIDO2)
+- **Security settings** — reconfigure your passkey or add/remove a backup password at any time
 - **Zero runtime dependencies** — the React frontend is embedded in the binary
 
 ## Requirements
@@ -92,6 +93,27 @@ make fmt
 # Tests
 make test
 ```
+
+## Changelog
+
+### v0.1.0
+
+- Vault encryption at rest — protect credentials with a password or passkey (WebAuthn/FIDO2)
+- EC2 instance names resolved from AWS Name tags
+- Dashboard live stats: total profiles, instances, active port-forward rules
+- Security page — reconfigure passkey or manage a backup password
+- Terminal and port-forward fixed after vault setup (transparent migration)
+
+### v0.0.3
+
+- UX improvements across instance browser and port-forwarding
+- Fixed frontend CI build in GoReleaser
+
+### v0.0.2 — v0.0.1
+
+- Initial release with SSM terminal sessions and port-forwarding
+- Multi-profile AWS credential management
+- Cross-platform builds (macOS, Linux, Windows)
 
 ## Architecture
 

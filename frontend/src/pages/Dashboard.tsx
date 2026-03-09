@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   KeyRound,
@@ -8,6 +9,8 @@ import {
   TrendingUp,
   ChevronRight,
   Zap,
+  Megaphone,
+  X,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
@@ -116,6 +119,89 @@ const QuickAction: FC<{
   )
 }
 
+const CURRENT_VERSION = 'v0.1.0'
+const CHANGELOG_KEY = `sesm-changelog-dismissed-${CURRENT_VERSION}`
+
+interface ChangelogEntry {
+  version: string
+  items: string[]
+}
+
+const changelogs: ChangelogEntry[] = [
+  {
+    version: 'v0.1.0',
+    items: [
+      'Vault encryption at rest — protect credentials with a password or passkey (WebAuthn/FIDO2)',
+      'EC2 instance names resolved from AWS Name tags',
+      'Dashboard live stats: total profiles, instances, active port-forward rules',
+      'Security page — reconfigure passkey or manage a backup password',
+      'Terminal and port-forward fixed after vault setup (transparent migration)',
+    ],
+  },
+  {
+    version: 'v0.0.3',
+    items: [
+      'UX improvements across instance browser and port-forwarding',
+      'Fixed frontend CI build in GoReleaser',
+    ],
+  },
+  {
+    version: 'v0.0.2 — v0.0.1',
+    items: [
+      'Initial release with SSM terminal sessions',
+      'Port-forwarding with rule management',
+      'Multi-profile AWS credential management',
+      'Cross-platform builds (macOS, Linux, Windows)',
+    ],
+  },
+]
+
+const ChangelogBanner: FC = () => {
+  const [dismissed, setDismissed] = useState(() => {
+    try { return !!localStorage.getItem(CHANGELOG_KEY) } catch { return false }
+  })
+
+  if (dismissed) return null
+
+  const dismiss = () => {
+    try { localStorage.setItem(CHANGELOG_KEY, '1') } catch { /* noop */ }
+    setDismissed(true)
+  }
+
+  return (
+    <div className="rounded-xl border border-[var(--color-brand)]/20 bg-[var(--color-brand-muted)] px-4 py-3 text-xs text-[var(--color-text-primary)]">
+      <div className="flex items-start gap-3">
+        <Megaphone size={14} className="text-[var(--color-brand)] shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0 space-y-3">
+          {changelogs.map((entry, i) => (
+            <div key={entry.version}>
+              <p className={`font-semibold mb-1 ${i === 0 ? 'text-[var(--color-brand)]' : 'text-[var(--color-text-secondary)]'}`}>
+                {i === 0 ? `What's new in ${entry.version}` : entry.version}
+              </p>
+              <ul className="space-y-1">
+                {entry.items.map((item) => (
+                  <li key={item} className="flex items-start gap-1.5 text-[var(--color-text-secondary)]">
+                    <span className={`mt-px ${i === 0 ? 'text-[var(--color-brand)]' : 'text-[var(--color-text-muted)]'}`}>·</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={dismiss}
+          className="text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors shrink-0"
+          aria-label="Dismiss"
+        >
+          <X size={14} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export const Dashboard: FC = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ['stats'],
@@ -170,6 +256,8 @@ export const Dashboard: FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
+      <ChangelogBanner />
+
       {/* Alert if API error (backend not running yet) */}
       {error && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-warning-muted)] border border-[var(--color-warning)]/20 text-xs text-[var(--color-warning)]">
