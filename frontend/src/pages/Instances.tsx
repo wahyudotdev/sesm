@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Server, Terminal, ArrowRightLeft, RefreshCw, Search, Edit2, Check, X } from 'lucide-react'
+import { Server, Terminal, ArrowRightLeft, RefreshCw, Search, Edit2, Check, X, RotateCcw } from 'lucide-react'
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -14,10 +14,11 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Spinner } from '@/components/ui/Spinner'
+import { ConfirmDialog } from '@/components/ui/Dialog'
 import type { Instance } from '@/types'
 
 const instanceStateVariant = (state: Instance['state']) => {
-  const map = { running: 'success', offline: 'default' } as const
+  const map = { running: 'success', stopped: 'default', stopping: 'warning', pending: 'warning', offline: 'default' } as const
   return map[state]
 }
 
@@ -80,6 +81,10 @@ export const Instances: FC = () => {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [selectedProfileId, setSelectedProfileId] = useState<string>('all')
+  const [rebootDialog, setRebootDialog] = useState<{ isOpen: boolean; instance: Instance & { profileId: string } | null }>({
+    isOpen: false,
+    instance: null,
+  })
 
   // Fetch profiles
   const { data: profiles = [], isLoading: isLoadingProfiles } = useQuery({
@@ -133,6 +138,14 @@ export const Instances: FC = () => {
     },
   })
 
+  const rebootMutation = useMutation({
+    mutationFn: ({ instanceId, profileId }: { instanceId: string; profileId: string }) =>
+      instancesApi.reboot(instanceId, profileId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['instances'] })
+    },
+  })
+
   const profileOptions = useMemo(
     () => [
       { value: 'all', label: 'All Profiles' },
@@ -153,6 +166,27 @@ export const Instances: FC = () => {
   const handleConnect = (instance: Instance & { profileId: string }) => {
     const name = instance.alias || instance.name || instance.instanceId
     window.open(`/terminal?profileId=${instance.profileId}&instanceId=${instance.instanceId}&instanceName=${encodeURIComponent(name)}`, '_blank')
+  }
+
+  const handleRebootClick = (instance: Instance & { profileId: string }) => {
+    setRebootDialog({ isOpen: true, instance })
+  }
+
+  const handleConfirmReboot = () => {
+    if (rebootDialog.instance) {
+      rebootMutation.mutate({ instanceId: rebootDialog.instance.instanceId, profileId: rebootDialog.instance.profileId })
+      setRebootDialog({ isOpen: false, instance: null })
+    }
+  }
+
+  const handleCloseRebootDialog = () => {
+    setRebootDialog({ isOpen: false, instance: null })
+  }
+
+  const canReboot = (instance: Instance & { profileId: string }) => {
+    const isEc2 = instance.instanceId.substring(0, 2) === 'i-'
+    const isReady = instance.state === 'running' || instance.state === 'stopped' || instance.state === 'offline'
+    return isEc2 && isReady
   }
 
   return (
@@ -242,7 +276,7 @@ export const Instances: FC = () => {
               <div className="w-20 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
                 State
               </div>
-              <div className="w-36 shrink-0" />
+              <div className="w-48 shrink-0" />
             </div>
             <div className="divide-y divide-[var(--color-border-subtle)]">
               {filtered.map((instance) => (
@@ -285,7 +319,7 @@ export const Instances: FC = () => {
                       {instance.state}
                     </Badge>
                   </div>
-                  <div className="w-36 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5">
+                  <div className="w-48 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5">
                     <Button
                       variant="primary"
                       size="sm"
@@ -306,6 +340,14 @@ export const Instances: FC = () => {
                       }
                       disabled={instance.state !== 'running'}
                     />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<RotateCcw size={12} />}
+                      onClick={() => handleRebootClick(instance)}
+                      disabled={!canReboot(instance) || rebootMutation.isPending}
+                      title={!canReboot(instance) ? 'Reboot is only available for running, stopped, or offline EC2 instances' : 'Reboot instance'}
+                    />
                   </div>
                 </div>
               ))}
@@ -313,6 +355,18 @@ export const Instances: FC = () => {
           </>
         )}
       </Card>
+
+      <ConfirmDialog
+        isOpen={rebootDialog.isOpen}
+        onClose={handleCloseRebootDialog}
+        onConfirm={handleConfirmReboot}
+        title="Reboot Instance"
+        description={`Are you sure you want to reboot ${rebootDialog.instance?.alias || rebootDialog.instance?.name || rebootDialog.instance?.instanceId}?`}
+        confirmText="Reboot"
+        cancelText="Cancel"
+        variant="danger"
+        isConfirming={rebootMutation.isPending}
+      />
     </div>
   )
 }

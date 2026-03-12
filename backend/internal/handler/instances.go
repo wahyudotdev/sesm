@@ -64,19 +64,28 @@ func (h *InstanceHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Best-effort: fetch Name tags from EC2. If this fails (e.g. missing ec2:Describe* permission),
-	// fall back to ComputerName.
-	ec2Names, _ := client.DescribeInstanceNames(r.Context(), ec2IDs)
+	// Best-effort: fetch instance details (name and state) from EC2. If this fails (e.g. missing ec2:Describe* permission),
+	// fall back to SSM PingStatus for state and ComputerName for name.
+	ec2Details, _ := client.DescribeInstanceDetails(r.Context(), ec2IDs)
 
 	instances := make([]model.Instance, 0, len(infos))
 	for _, info := range infos {
-		state := "offline"
-		if info.PingStatus == "Online" {
-			state = "running"
+		var state string
+		if details, ok := ec2Details[info.InstanceId]; ok && details.State != "" {
+			// Use actual EC2 state if available
+			state = details.State
+		} else {
+			// Fallback to SSM PingStatus
+			state = "offline"
+			if info.PingStatus == "Online" {
+				state = "running"
+			}
 		}
 
-		name := ec2Names[info.InstanceId]
-		if name == "" {
+		var name string
+		if details, ok := ec2Details[info.InstanceId]; ok && details.Name != "" {
+			name = details.Name
+		} else {
 			name = info.ComputerName
 		}
 		if name == "" {
@@ -115,6 +124,50 @@ func (h *InstanceHandler) SetAlias(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.instances.SetAlias(r.Context(), id, req.Alias); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	ok(w, nil)
+}
+
+// Reboot reboots the specified EC2 instance.
+func (h *InstanceHandler) Reboot(w http.ResponseWriter, r *http.Request) {
+	instanceID := r.PathValue("id")
+	if instanceID == "" {
+		fail(w, http.StatusBadRequest, "id is required")
+		return
+	}
+
+	// Check if this is an EC2 instance (starts with "i-")
+	if len(instanceID) < 2 || instanceID[:2] != "i-" {
+		fail(w, http.StatusBadRequest, "reboot is only supported for EC2 instances")
+		return
+	}
+
+	profileID := r.URL.Query().Get("profileId")
+	if profileID == "" {
+		fail(w, http.StatusBadRequest, "profileId query parameter is required")
+		return
+	}
+
+	profile, err := h.profiles.GetByID(r.Context(), profileID)
+	if err != nil {
+		if err.Error() == "not found" {
+			fail(w, http.StatusNotFound, "profile not found")
+			return
+		}
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	client := &awsclient.Client{
+		AccessKeyID:     profile.AccessKeyID,
+		SecretAccessKey: profile.SecretAccessKey,
+		Region:          profile.Region,
+	}
+
+	if err := client.RebootInstances(r.Context(), []string{instanceID}); err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}

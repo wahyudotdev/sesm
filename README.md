@@ -96,6 +96,10 @@ make test
 
 ## Changelog
 
+### v0.1.1
+
+- Reboot EC2 instance feature — reboot instances directly from the UI
+
 ### v0.1.0
 
 - Vault encryption at rest — protect credentials with a password or passkey (WebAuthn/FIDO2)

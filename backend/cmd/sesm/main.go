@@ -63,6 +63,7 @@ func main() {
 	mux.HandleFunc("DELETE /api/profiles/{id}", profileH.Delete)
 	mux.HandleFunc("GET /api/instances", instanceH.List)
 	mux.HandleFunc("POST /api/instances/{id}/alias", instanceH.SetAlias)
+	mux.HandleFunc("POST /api/instances/{id}/reboot", instanceH.Reboot)
 	mux.HandleFunc("GET /api/sessions", sessionH.List)
 	mux.HandleFunc("POST /api/sessions/port-forward", sessionH.StartPortForward)
 	mux.HandleFunc("POST /api/sessions/{id}/terminate", sessionH.Terminate)

@@ -26,7 +26,7 @@ export interface Instance {
   name: string
   alias?: string
   type: string
-  state: 'running' | 'offline'
+  state: 'running' | 'stopped' | 'stopping' | 'pending' | 'offline'
   platform: string
   privateIp: string
   resourceType: string

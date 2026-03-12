@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"time"
 )
 
 // Client holds credentials for AWS API calls.
@@ -114,11 +116,15 @@ func (c *Client) post(ctx context.Context, target string, body []byte, out any) 
 		return fmt.Errorf("sign request: %w", err)
 	}
 
+	start := time.Now()
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
+		log.Printf("aws ssm %s: request failed (%s): %v", target, time.Since(start).Round(time.Millisecond), err)
 		return fmt.Errorf("do request: %w", err)
 	}
 	defer resp.Body.Close()
+
+	log.Printf("aws ssm %s: %d (%s)", target, resp.StatusCode, time.Since(start).Round(time.Millisecond))
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		var errBody map[string]any
